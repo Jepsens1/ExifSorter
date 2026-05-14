@@ -1,6 +1,6 @@
 from pathlib import Path
 from classes.io_handler import IOHandler
-from functions.group_by_hash import group_by_hash
+from functions.file_hashing import group_by_hash
 from models.file_data import FileData
 
 

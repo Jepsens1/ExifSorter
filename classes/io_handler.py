@@ -4,7 +4,7 @@ from collections import defaultdict
 import shutil
 from datetime import datetime
 
-from functions.get_file_datetime import get_file_datetime
+from functions.file_metadata import get_file_datetime
 from models.file_data import FileData
 
 
