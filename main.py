@@ -1,6 +1,10 @@
 import argparse
 from classes.media_organizer_service import MediaOrganizerService
-from helpers.print_to_console import print_conflicts, print_duplicates
+from helpers.print_to_console import (
+    print_conflicts,
+    print_duplicates,
+    print_scanned_files,
+)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -22,6 +26,11 @@ if __name__ == "__main__":
     group.add_argument(
         "--sort-year", action="store_true", help="Sort into year folders"
     )
+    group.add_argument(
+        "--beutify-names",
+        action="store_true",
+        help="Beutify names into readable file names",
+    )
 
     parser.add_argument("--dry-run", action="store_true", help="Preview only")
 
@@ -36,7 +45,8 @@ if __name__ == "__main__":
     if args.all:
         service.run_all(is_dry_run=args.dry_run)
     elif args.scan:
-        service.scan_files()
+        scanned_files = service.scan_files()
+        print_scanned_files(scanned_files)
     elif args.duplicates:
         duplicates = service.find_duplicates()
         print_duplicates(duplicates)
@@ -49,3 +59,5 @@ if __name__ == "__main__":
         service.rename_conflicts(is_dry_run=args.dry_run)
     elif args.sort_year:
         service.sort_files_by_year(is_dry_run=args.dry_run)
+    elif args.beutify_names:
+        service.beutify_file_name(is_dry_run=args.dry_run)

@@ -1,4 +1,3 @@
-from datetime import datetime
 import hashlib
 from pathlib import Path
 from collections import defaultdict
@@ -11,8 +10,6 @@ from models.file_data import FileData
 class IOHandler:
     def __init__(self, *, base_path: str):
         self.base_path = base_path
-        self.file_data: list[FileData] = []
-        self.hash_groups = defaultdict(list)
         self.duplicates_dir = Path(self.base_path) / "duplicates"
         self.duplicates_dir.mkdir(exist_ok=True)
         self.without_exif_dir = Path(self.base_path) / "without_exif"
@@ -20,36 +17,37 @@ class IOHandler:
         self.roughly_sorted_dir = Path(self.base_path) / "roughly_sorted"
         self.roughly_sorted_dir.mkdir(exist_ok=True)
 
-    def collect_file_names(self) -> dict[str, list[str]]:
-        name_map: dict[str, list[str]] = defaultdict(list)
+    def scan_files(self) -> list[Path]:
+        return [file for file in Path(self.base_path).rglob("*") if file.is_file()]
 
-        for filepath in Path(self.base_path).rglob("*"):
-            if filepath.is_file():
-                name_map[filepath.name].append(str(filepath))
+    def collect_conflicts(self) -> dict[str, list[str]]:
+        names_map: dict[str, list[str]] = defaultdict(list)
+
+        files: list[Path] = self.scan_files()
+        for file in files:
+            names_map[file.name].append(str(file))
 
         conflicts = {
             name: paths
-            for name, paths in name_map.items()
+            for name, paths in names_map.items()
             if name != ".DS_Store" and len(paths) > 1
         }
         return conflicts
 
     def collect_file_data(self) -> list[FileData]:
         skipped: int = 0
+        file_data: list[FileData] = []
 
-        for file_path in Path(self.base_path).rglob("*"):
-            if not file_path.is_file():
-                continue
-
+        for file in self.scan_files():
             try:
-                size = file_path.stat().st_size
-                hash_value = self._hash_file(file_path)
+                size = file.stat().st_size
+                hash_value = self._hash_file(file)
 
                 if hash_value:
-                    self.file_data.append(
+                    file_data.append(
                         FileData(
-                            name=file_path.name,
-                            file_path=str(file_path),
+                            name=file.name,
+                            file_path=str(file),
                             size=size,
                             hash=hash_value,
                         )
@@ -57,11 +55,15 @@ class IOHandler:
                 else:
                     skipped += 1
             except Exception as ex:
-                print(f"Failed to get hash_value for {str(file_path)} - {ex}")
-        print(f"total files found: {len(self.file_data) + skipped}")
-        print(f" - files with hash: {len(self.file_data)}")
+                print(f"Failed to process {file} - {ex}")
+                skipped += 1  # also count as skipped
+
+        total = len(file_data) + skipped
+        print(f"total files found: {total}")
+        print(f" - files with hash: {len(file_data)}")
         print(f" - files without hash (skipped): {skipped}")
-        return self.file_data
+
+        return file_data
 
     def _find_oldest_file(self, file_group: list[FileData]) -> str:
         files_with_mtime: list[tuple[float, str]] = []
@@ -102,7 +104,7 @@ class IOHandler:
                         print(f"DRY RUN: would move {file.file_path} to {target_path}")
                     else:
                         shutil.move(file.file_path, target_path)
-                    print(f"moved {file.file_path} to {target_path}")
+                        print(f"moved {file.file_path} to {target_path}")
 
                 except Exception as e:
                     print(f"could not move file: {file.file_path}: {e}")
@@ -133,29 +135,28 @@ class IOHandler:
                     )
         print(f"Files without datetime info {none_counter}")
 
-    def move_files_to_year(self, *, files: list[FileData], is_dry_run: bool):
+    def move_files_to_year(self, *, files: list[Path], is_dry_run: bool) -> None:
         counter = 0
         for file in files:
-            filepath = Path(file.file_path)
-            if filepath.name == ".DS_Store":
+            if file.name == ".DS_Store":
                 continue
-            datetime_str = get_file_datetime(filepath)
+            datetime_str = get_file_datetime(file)
             if not datetime_str:
                 new_path = self.without_exif_dir / file.name
                 if new_path.exists():
                     print(f"⚠️ Warning: {new_path.name} already exists in {new_path}")
                 else:
+                    counter += 1
                     if is_dry_run:
                         print(f"DRY RUN: No exif would move to {new_path}")
                     else:
-                        shutil.move(str(filepath), new_path)
+                        shutil.move(str(file), new_path)
                         print(f"no exif, move to {new_path}")
-                        counter += 1
             if datetime_str:
                 year = datetime_str[:4]
                 year_path = self.roughly_sorted_dir / year
                 year_path.mkdir(exist_ok=True)
-                new_name = f"{datetime_str}_{filepath.stem}{filepath.suffix}"
+                new_name = f"{datetime_str}_{file.stem}{file.suffix}"
                 new_path = year_path / new_name
                 if new_path.exists():
                     print(f"⚠️ Warning: {new_path.name} already exists in {year_path}")
@@ -166,13 +167,16 @@ class IOHandler:
                                 f"DRY RUN: {file.name} has exif with year {year}, moved to {new_path}"
                             )
                         else:
-                            shutil.move(str(filepath), new_path)
+                            shutil.move(str(file), new_path)
                             print(
                                 f"{file.name} has exif with year {year}, moved to {new_path}"
                             )
                     except Exception as e:
                         print(f"error while moving {e}")
         print(f"files with no exif {counter} out of {len(files)}")
+
+    def beutify_file_names(self, *, files: list[Path], is_dry_run: bool) -> None:
+        print("hello world")
 
     def _hash_file(self, file_path: Path, chunk_size: int = 8192) -> str | None:
         hasher = hashlib.sha256()
