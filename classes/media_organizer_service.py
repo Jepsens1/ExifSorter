@@ -54,11 +54,11 @@ class MediaOrganizerService:
             self.scan_files()
         self.io.move_files_to_year(files=self.files, is_dry_run=is_dry_run)
 
-    def beutify_file_name(self, *, is_dry_run: bool = False) -> None:
+    def beautify_file_name(self, *, is_dry_run: bool = False) -> None:
         if not self.files:
             self.scan_files()
 
-        self.io.beutify_file_names(files=self.files, is_dry_run=is_dry_run)
+        self.io.beautify_file_names(files=self.files, is_dry_run=is_dry_run)
 
     def run_all(self, *, is_dry_run: bool = False) -> None:
         print("=== Starting full operation ===")
@@ -66,5 +66,5 @@ class MediaOrganizerService:
         self.move_duplicates(is_dry_run=is_dry_run)
         self.rename_conflicts(is_dry_run=is_dry_run)
         self.sort_files_by_year(is_dry_run=is_dry_run)
-        self.beutify_file_name(is_dry_run=is_dry_run)
+        self.beautify_file_name(is_dry_run=is_dry_run)
         print("=== All operations completed ===")

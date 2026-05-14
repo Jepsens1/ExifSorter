@@ -27,7 +27,7 @@ if __name__ == "__main__":
         "--sort-year", action="store_true", help="Sort into year folders"
     )
     group.add_argument(
-        "--beutify-names",
+        "--beautify-names",
         action="store_true",
         help="Beutify names into readable file names",
     )
@@ -59,5 +59,5 @@ if __name__ == "__main__":
         service.rename_conflicts(is_dry_run=args.dry_run)
     elif args.sort_year:
         service.sort_files_by_year(is_dry_run=args.dry_run)
-    elif args.beutify_names:
-        service.beutify_file_name(is_dry_run=args.dry_run)
+    elif args.beautify_names:
+        service.beautify_file_name(is_dry_run=args.dry_run)

@@ -168,7 +168,7 @@ class IOHandler:
             f"Summary: {no_exif_counter} files moved to: '{self.without_exif_dir.name}'"
         )
 
-    def beutify_file_names(self, *, files: list[Path], is_dry_run: bool) -> None:
+    def beautify_file_names(self, *, files: list[Path], is_dry_run: bool) -> None:
         print("hello world")
 
     def _save_move(
