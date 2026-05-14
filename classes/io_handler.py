@@ -32,7 +32,12 @@ class IOHandler:
 
     def scan_files(self) -> list[Path]:
         print_header("Scanning files... (this may take a while)")
-        return [file for file in self.base_path.rglob("*") if file.is_file()]
+        files: list[Path] = []
+        for file in self.base_path.rglob("*"):
+            if file.is_file():
+                files.append(file)
+        print_success(f"Done scanning files, loaded {len(files)} files")
+        return files
 
     def collect_conflicts(self) -> dict[str, list[str]]:
         names_map: dict[str, list[str]] = defaultdict(list)
@@ -47,6 +52,9 @@ class IOHandler:
             for name, paths in names_map.items()
             if name != ".DS_Store" and len(paths) > 1
         }
+        print_success("Done finding name conflicts")
+        if len(conflicts) > 0:
+            print_warning(f"Found {len(conflicts)} files with same name")
         return conflicts
 
     def collect_file_data(self) -> list[FileData]:
@@ -75,8 +83,7 @@ class IOHandler:
                 print_error(f"Failed to process {file} - {ex}")
                 skipped += 1  # also count as skipped
 
-        total = len(file_data) + skipped
-        print_success(f"Summary: Total files: {total}")
+        print_success("Done calculating hashes")
         print_info(f" - Files with hash value: {len(file_data)}")
         print_info(f" - Files without hash value (skipped): {skipped}")
 
@@ -101,7 +108,7 @@ class IOHandler:
         print_header(f"Moving duplicate files to {self.duplicates_dir.name}")
         for hash_value, files in duplicates.items():
             file_to_keep = self._find_oldest_file(files)
-            print_info(f"Keeping: {file_to_keep}")
+            print_info(f"Keeping oldest file: {file_to_keep}")
 
             hash_folder = self.duplicates_dir / hash_value
             hash_folder.mkdir(parents=True, exist_ok=True)
@@ -126,10 +133,12 @@ class IOHandler:
 
                 except Exception as ex:
                     print_error(f"Could not move file: {file.file_path}: {ex}")
+        print_success("Done moving duplicates")
 
     def rename_conflicts(
         self, *, conflicts: dict[str, list[str]], is_dry_run: bool
     ) -> None:
+        print_header("Renaming conflict files")
         none_counter = 0
         for name, paths in conflicts.items():
             for idx, path_str in enumerate(paths, start=1):
@@ -151,7 +160,9 @@ class IOHandler:
                         new_name_base=f"unknown_{file_path.stem}_({idx})",
                         is_dry_run=is_dry_run,
                     )
-        print_warning(f"Summary: {none_counter} files without Datetime information")
+        print_success("Done renaming conflicts")
+        if none_counter > 0:
+            print_warning(f"-> {none_counter} files without Datetime information")
 
     def move_files_to_year(self, *, files: list[Path], is_dry_run: bool) -> None:
         no_exif_counter = 0
@@ -181,9 +192,10 @@ class IOHandler:
                     is_dry_run=is_dry_run,
                     action="No EXIF",
                 )
-        print_warning(
-            f"Summary: {no_exif_counter} files moved to: '{self.without_exif_dir.name}'"
-        )
+        if no_exif_counter > 0:
+            print_warning(
+                f"-> {no_exif_counter} files moved to: '{self.without_exif_dir.name}'"
+            )
 
     def beautify_file_names(self, *, files: list[Path], is_dry_run: bool) -> None:
         conflict_count = 0
@@ -225,7 +237,7 @@ class IOHandler:
                 renamed_count += 1
             except Exception as ex:
                 print_error(f"Failed to beautify {file.name}: {ex}")
-        print_success(f"Summary: Beautify completed: {renamed_count} files renamed.")
+        print_success(f"Beautify completed: {renamed_count} files renamed.")
         if conflict_count > 0:
             print_warning(
                 f"→ {conflict_count} conflicts resolved with (_1), (_2), etc."

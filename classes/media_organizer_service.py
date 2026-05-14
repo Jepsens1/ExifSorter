@@ -38,7 +38,6 @@ class MediaOrganizerService:
 
     def find_name_conflicts(self) -> dict[str, list[str]]:
         conflicts = self.io.collect_conflicts()
-        print_success(f"Found {len(conflicts)} files with same name")
         return conflicts
 
     def rename_conflicts(self, *, is_dry_run: bool = False) -> None:

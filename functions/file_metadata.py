@@ -1,5 +1,6 @@
 import subprocess
 import piexif
+from helpers.console import print_error
 
 
 def get_file_datetime(filepath):
@@ -23,7 +24,7 @@ def _get_exif_datetime(filepath):
         if datetime_digital:
             return datetime_digital.decode("utf-8")
     except Exception as ex:
-        print(f"ERROR: Could not read EXIF for {filepath}: {ex}")
+        print_error(f"ERROR: Could not read EXIF for {filepath}: {ex}")
     return None
 
 
@@ -67,5 +68,5 @@ def _get_video_creation_date(filepath):
         if output:
             return output.replace("-", "").replace(":", "").replace("T", "_")[:15]
     except Exception as ex:
-        print(f"ERROR: Failed to read Metadata (video): {filepath.name}: {ex}")
+        print_error(f"ERROR: Failed to read Metadata (video): {filepath.name}: {ex}")
     return None
