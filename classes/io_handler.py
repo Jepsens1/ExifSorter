@@ -7,6 +7,15 @@ from datetime import datetime
 from functions.file_metadata import get_file_datetime
 from models.file_data import FileData
 
+from helpers.console import (
+    print_info,
+    print_success,
+    print_warning,
+    print_error,
+    print_dry_run,
+    print_header,
+)
+
 
 class IOHandler:
     def __init__(self, *, base_path: str):
@@ -19,13 +28,17 @@ class IOHandler:
         self.without_exif_dir.mkdir(exist_ok=True)
         self.roughly_sorted_dir.mkdir(exist_ok=True)
 
+        print_info(f"Initialized IOHandler with base path: {self.base_path}")
+
     def scan_files(self) -> list[Path]:
+        print_header("Scanning files... (this may take a while)")
         return [file for file in self.base_path.rglob("*") if file.is_file()]
 
     def collect_conflicts(self) -> dict[str, list[str]]:
         names_map: dict[str, list[str]] = defaultdict(list)
 
         files: list[Path] = self.scan_files()
+        print_header("Finding name conflicts")
         for file in files:
             names_map[file.name].append(str(file))
 
@@ -40,7 +53,9 @@ class IOHandler:
         skipped: int = 0
         file_data: list[FileData] = []
 
-        for file in self.scan_files():
+        scanned_files = self.scan_files()
+        print_header("Calculating hashes... (this may take a while)")
+        for file in scanned_files:
             try:
                 size = file.stat().st_size
                 hash_value = self._hash_file(file)
@@ -57,13 +72,13 @@ class IOHandler:
                 else:
                     skipped += 1
             except Exception as ex:
-                print(f"ERROR: Failed to process {file} - {ex}")
+                print_error(f"Failed to process {file} - {ex}")
                 skipped += 1  # also count as skipped
 
         total = len(file_data) + skipped
-        print(f"Summary: Total files: {total}")
-        print(f" - Files with hash value: {len(file_data)}")
-        print(f" - Files without hash value (skipped): {skipped}")
+        print_success(f"Summary: Total files: {total}")
+        print_info(f" - Files with hash value: {len(file_data)}")
+        print_info(f" - Files without hash value (skipped): {skipped}")
 
         return file_data
 
@@ -73,8 +88,8 @@ class IOHandler:
             try:
                 mtime = Path(file.file_path).stat().st_mtime
                 files_with_mtime.append((mtime, file.file_path))
-            except Exception as e:
-                print(f"ERROR: Failed to read mtime for {file.file_path}: {e}")
+            except Exception as ex:
+                print_error(f"Failed to read mtime for {file.file_path}: {ex}")
 
         files_with_mtime.sort()
         return files_with_mtime[0][1]
@@ -83,9 +98,10 @@ class IOHandler:
         self, *, duplicates: dict[str, list[FileData]], is_dry_run: bool
     ) -> None:
 
+        print_header(f"Moving duplicate files to {self.duplicates_dir.name}")
         for hash_value, files in duplicates.items():
             file_to_keep = self._find_oldest_file(files)
-            print(f"keeping: {file_to_keep}")
+            print_info(f"Keeping: {file_to_keep}")
 
             hash_folder = self.duplicates_dir / hash_value
             hash_folder.mkdir(parents=True, exist_ok=True)
@@ -103,13 +119,13 @@ class IOHandler:
                         counter += 1
 
                     if is_dry_run:
-                        print(f"DRY RUN: would move {file.file_path} to {target_path}")
+                        print_dry_run(f"Would move {file.file_path} to {target_path}")
                     else:
                         shutil.move(file.file_path, target_path)
-                        print(f"Moved {file.file_path} to {target_path}")
+                        print_success(f"Moved {file.file_path} to {target_path}")
 
                 except Exception as ex:
-                    print(f"ERROR: Could not move file: {file.file_path}: {ex}")
+                    print_error(f"Could not move file: {file.file_path}: {ex}")
 
     def rename_conflicts(
         self, *, conflicts: dict[str, list[str]], is_dry_run: bool
@@ -135,7 +151,7 @@ class IOHandler:
                         new_name_base=f"unknown_{file_path.stem}_({idx})",
                         is_dry_run=is_dry_run,
                     )
-        print(f"Summary: {none_counter} files without Datetime information")
+        print_warning(f"Summary: {none_counter} files without Datetime information")
 
     def move_files_to_year(self, *, files: list[Path], is_dry_run: bool) -> None:
         no_exif_counter = 0
@@ -165,7 +181,7 @@ class IOHandler:
                     is_dry_run=is_dry_run,
                     action="No EXIF",
                 )
-        print(
+        print_warning(
             f"Summary: {no_exif_counter} files moved to: '{self.without_exif_dir.name}'"
         )
 
@@ -197,36 +213,38 @@ class IOHandler:
                             f"{new_name}_({counter}){file.suffix}"
                         )
                         counter += 1
-                    print(
-                        f"[Beautify]: Conflict detected -> added (_counter) to {file.name}"
+                    print_warning(
+                        f"Conflict detected -> added (_counter) to {file.name}"
                     )
                 if is_dry_run:
-                    print(f"DRY RUN [Beautify]: {file.name} -> {new_path.name}")
+                    print_dry_run(f"{file.name} -> {new_path.name}")
                 else:
                     file.rename(new_path)
-                    print(f"Beautified: {file.name} → {new_path.name}")
+                    print_success(f"Beautified: {file.name} → {new_path.name}")
 
                 renamed_count += 1
             except Exception as ex:
-                print(f"ERROR: Failed to beautify {file.name}: {ex}")
-        print(f"Summary: Beautify completed: {renamed_count} files renamed.")
+                print_error(f"Failed to beautify {file.name}: {ex}")
+        print_success(f"Summary: Beautify completed: {renamed_count} files renamed.")
         if conflict_count > 0:
-            print(f"   → {conflict_count} conflicts resolved with (_1), (_2), etc.")
+            print_warning(
+                f"   → {conflict_count} conflicts resolved with (_1), (_2), etc."
+            )
 
     def _save_move(
         self, *, source: Path, target: Path, is_dry_run: bool, action: str
     ) -> None:
         if target.exists():
-            print(f"WARNING: {target.name} already exists in {target.parent.name}")
+            print_warning(f"{target.name} already exists in {target.parent.name}")
             return
         if is_dry_run:
-            print(f"DRY RUN: [{action}]: {source} -> {target}")
+            print_dry_run(f"[{action}]: {source} -> {target}")
         else:
             try:
                 shutil.move(str(source), target)
-                print(f"Moved [{action}]: {source.name} -> {target}")
+                print_success(f"Moved [{action}]: {source.name} -> {target}")
             except Exception as ex:
-                print(f"ERROR: Failed to move {source.name}: {ex}")
+                print_error(f"Failed to move {source.name}: {ex}")
 
     def _hash_file(self, file_path: Path, chunk_size: int = 8192) -> str | None:
         hasher = hashlib.sha256()
@@ -235,7 +253,7 @@ class IOHandler:
                 while chunk := file.read(chunk_size):
                     hasher.update(chunk)
         except Exception as ex:
-            print(f"ERROR: Failed to get hash value for {file_path} - {ex}")
+            print_error(f"Failed to get hash value for {file_path} - {ex}")
             return None
         return hasher.hexdigest()
 
@@ -248,10 +266,10 @@ class IOHandler:
             new_path = file.with_name(f"{new_name_base}_{counter}{file.suffix}")
             counter += 1
         if is_dry_run:
-            print(f"DRY RUN: would rename: {file.name} to {new_path.name}")
+            print_dry_run(f"Would rename: {file.name} to {new_path.name}")
         else:
-            print(f"Renaming: {file.name} to {new_path.name}")
             file.rename(new_path)
+            print_success(f"Renamed: {file.name} to {new_path.name}")
 
     def _move_with_conflict_avoidance(
         self, *, file: Path, target_dir: Path, new_name_base: str, is_dry_run: bool
@@ -264,9 +282,7 @@ class IOHandler:
             new_path = target_dir / f"{new_name_base}_{counter}{file.suffix}"
             counter += 1
         if is_dry_run:
-            print(
-                f"DRY RUN: would move: {file.name} to {target_dir} as {new_path.name}"
-            )
+            print_dry_run(f"Would move: {file.name} to {target_dir} as {new_path.name}")
         else:
-            print(f"Moving: {file.name} to {target_dir} as {new_path.name}")
             shutil.move(str(file), new_path)
+            print_success(f"Moved: {file.name} to {target_dir} as {new_path.name}")

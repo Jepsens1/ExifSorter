@@ -1,5 +1,6 @@
 import argparse
 from classes.media_organizer_service import MediaOrganizerService
+from helpers.console import print_error
 from helpers.print_to_console import (
     print_conflicts,
     print_duplicates,
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     try:
         service = MediaOrganizerService(base_path=args.dir)
     except ValueError as ex:
-        print(f"Error: {ex}")
+        print_error(f"{ex}")
         exit(1)
 
     if args.all:
