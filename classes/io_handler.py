@@ -228,7 +228,7 @@ class IOHandler:
         print_success(f"Summary: Beautify completed: {renamed_count} files renamed.")
         if conflict_count > 0:
             print_warning(
-                f"   → {conflict_count} conflicts resolved with (_1), (_2), etc."
+                f"→ {conflict_count} conflicts resolved with (_1), (_2), etc."
             )
 
     def _save_move(
