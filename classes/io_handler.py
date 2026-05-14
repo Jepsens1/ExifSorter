@@ -2,6 +2,7 @@ import hashlib
 from pathlib import Path
 from collections import defaultdict
 import shutil
+from datetime import datetime
 
 from functions.get_file_datetime import get_file_datetime
 from models.file_data import FileData
@@ -169,7 +170,48 @@ class IOHandler:
         )
 
     def beautify_file_names(self, *, files: list[Path], is_dry_run: bool) -> None:
-        print("hello world")
+        conflict_count = 0
+        renamed_count = 0
+        for file in files:
+            datetime_str = get_file_datetime(file)
+            if not datetime_str:
+                continue
+
+            try:
+                dt = datetime.strptime(datetime_str, "%Y%m%d_%H%M%S")
+
+                format_date = dt.strftime("%d-%m-%Y")
+                format_time = dt.strftime("%H-%M-%S")
+
+                parent_folder_name = file.parent.name
+
+                new_name = f"{parent_folder_name}_{format_date}_{format_time}"
+                new_path = file.with_name(new_name + file.suffix)
+
+                # Safe guard
+                if new_path.exists() and new_path != file:
+                    conflict_count += 1
+                    counter = 1
+                    while new_path.exists():
+                        new_path = file.with_name(
+                            f"{new_name}_({counter}){file.suffix}"
+                        )
+                        counter += 1
+                    print(
+                        f"[Beautify]: Conflict detected -> added (_counter) to {file.name}"
+                    )
+                if is_dry_run:
+                    print(f"DRY RUN [Beautify]: {file.name} -> {new_path.name}")
+                else:
+                    file.rename(new_path)
+                    print(f"Beautified: {file.name} → {new_path.name}")
+
+                renamed_count += 1
+            except Exception as ex:
+                print(f"ERROR: Failed to beautify {file.name}: {ex}")
+        print(f"Summary: Beautify completed: {renamed_count} files renamed.")
+        if conflict_count > 0:
+            print(f"   → {conflict_count} conflicts resolved with (_1), (_2), etc.")
 
     def _save_move(
         self, *, source: Path, target: Path, is_dry_run: bool, action: str
