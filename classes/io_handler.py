@@ -55,13 +55,13 @@ class IOHandler:
                 else:
                     skipped += 1
             except Exception as ex:
-                print(f"Failed to process {file} - {ex}")
+                print(f"ERROR: Failed to process {file} - {ex}")
                 skipped += 1  # also count as skipped
 
         total = len(file_data) + skipped
-        print(f"total files found: {total}")
-        print(f" - files with hash: {len(file_data)}")
-        print(f" - files without hash (skipped): {skipped}")
+        print(f"Summary: Total files: {total}")
+        print(f" - Files with hash value: {len(file_data)}")
+        print(f" - Files without hash value (skipped): {skipped}")
 
         return file_data
 
@@ -72,7 +72,7 @@ class IOHandler:
                 mtime = Path(file.file_path).stat().st_mtime
                 files_with_mtime.append((mtime, file.file_path))
             except Exception as e:
-                print(f"could not read mtime for {file.file_path}: {e}")
+                print(f"ERROR: Failed to read mtime for {file.file_path}: {e}")
 
         files_with_mtime.sort()
         return files_with_mtime[0][1]
@@ -104,10 +104,10 @@ class IOHandler:
                         print(f"DRY RUN: would move {file.file_path} to {target_path}")
                     else:
                         shutil.move(file.file_path, target_path)
-                        print(f"moved {file.file_path} to {target_path}")
+                        print(f"Moved {file.file_path} to {target_path}")
 
-                except Exception as e:
-                    print(f"could not move file: {file.file_path}: {e}")
+                except Exception as ex:
+                    print(f"ERROR: Could not move file: {file.file_path}: {ex}")
 
     def rename_conflicts(
         self, *, conflicts: dict[str, list[str]], is_dry_run: bool
@@ -133,50 +133,57 @@ class IOHandler:
                         new_name_base=f"unknown_{file_path.stem}_({idx})",
                         is_dry_run=is_dry_run,
                     )
-        print(f"Files without datetime info {none_counter}")
+        print(f"Summary: {none_counter} files without Datetime information")
 
     def move_files_to_year(self, *, files: list[Path], is_dry_run: bool) -> None:
-        counter = 0
+        no_exif_counter = 0
         for file in files:
             if file.name == ".DS_Store":
                 continue
             datetime_str = get_file_datetime(file)
-            if not datetime_str:
-                new_path = self.without_exif_dir / file.name
-                if new_path.exists():
-                    print(f"⚠️ Warning: {new_path.name} already exists in {new_path}")
-                else:
-                    counter += 1
-                    if is_dry_run:
-                        print(f"DRY RUN: No exif would move to {new_path}")
-                    else:
-                        shutil.move(str(file), new_path)
-                        print(f"no exif, move to {new_path}")
             if datetime_str:
                 year = datetime_str[:4]
                 year_path = self.roughly_sorted_dir / year
                 year_path.mkdir(exist_ok=True)
                 new_name = f"{datetime_str}_{file.stem}{file.suffix}"
                 new_path = year_path / new_name
-                if new_path.exists():
-                    print(f"⚠️ Warning: {new_path.name} already exists in {year_path}")
-                else:
-                    try:
-                        if is_dry_run:
-                            print(
-                                f"DRY RUN: {file.name} has exif with year {year}, moved to {new_path}"
-                            )
-                        else:
-                            shutil.move(str(file), new_path)
-                            print(
-                                f"{file.name} has exif with year {year}, moved to {new_path}"
-                            )
-                    except Exception as e:
-                        print(f"error while moving {e}")
-        print(f"files with no exif {counter} out of {len(files)}")
+
+                self._save_move(
+                    source=file,
+                    target=new_path,
+                    is_dry_run=is_dry_run,
+                    action=f"EXIF -> Year {year}",
+                )
+            else:
+                new_path = self.without_exif_dir / file.name
+                no_exif_counter += 1
+                self._save_move(
+                    source=file,
+                    target=new_path,
+                    is_dry_run=is_dry_run,
+                    action="No EXIF",
+                )
+        print(
+            f"Summary: {no_exif_counter} files moved to: '{self.without_exif_dir.name}'"
+        )
 
     def beutify_file_names(self, *, files: list[Path], is_dry_run: bool) -> None:
         print("hello world")
+
+    def _save_move(
+        self, *, source: Path, target: Path, is_dry_run: bool, action: str
+    ) -> None:
+        if target.exists():
+            print(f"WARNING: {target.name} already exists in {target.parent.name}")
+            return
+        if is_dry_run:
+            print(f"DRY RUN: [{action}]: {source} -> {target}")
+        else:
+            try:
+                shutil.move(str(source), target)
+                print(f"Moved [{action}]: {source.name} -> {target}")
+            except Exception as ex:
+                print(f"ERROR: Failed to move {source.name}: {ex}")
 
     def _hash_file(self, file_path: Path, chunk_size: int = 8192) -> str | None:
         hasher = hashlib.sha256()
@@ -185,7 +192,7 @@ class IOHandler:
                 while chunk := file.read(chunk_size):
                     hasher.update(chunk)
         except Exception as ex:
-            print(f"Failed to get hash_value for {file_path} - {ex}")
+            print(f"ERROR: Failed to get hash value for {file_path} - {ex}")
             return None
         return hasher.hexdigest()
 

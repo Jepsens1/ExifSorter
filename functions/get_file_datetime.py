@@ -22,8 +22,8 @@ def _get_exif_datetime(filepath):
         datetime_digital = exif_dict["Exif"].get(piexif.ExifIFD.DateTimeDigitized)
         if datetime_digital:
             return datetime_digital.decode("utf-8")
-    except Exception as e:
-        print(f"could not read EXIF for {filepath}: {e}")
+    except Exception as ex:
+        print(f"ERROR: Could not read EXIF for {filepath}: {ex}")
     return None
 
 
@@ -66,6 +66,6 @@ def _get_video_creation_date(filepath):
         output = result.stdout.strip()
         if output:
             return output.replace("-", "").replace(":", "").replace("T", "_")[:15]
-    except Exception as e:
-        print(f"metadata fail (video): {filepath.name}: {e}")
+    except Exception as ex:
+        print(f"ERROR: Failed to read Metadata (video): {filepath.name}: {ex}")
     return None

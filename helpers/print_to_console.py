@@ -4,7 +4,7 @@ from models.file_data import FileData
 
 def print_duplicates(duplicates: dict[str, list[FileData]]):
     for hash_, files in duplicates.items():
-        print(f"🧬 Hash: {hash_}")
+        print(f"Hash: {hash_}")
         for file in files:
             size_mb = file.size / (1024 * 1024)
             print(f" - {file.file_path} ({size_mb:.2f} MB)")
