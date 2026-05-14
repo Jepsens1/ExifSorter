@@ -9,16 +9,17 @@ from models.file_data import FileData
 
 class IOHandler:
     def __init__(self, *, base_path: str):
-        self.base_path = base_path
-        self.duplicates_dir = Path(self.base_path) / "duplicates"
+        self.base_path: Path = Path(base_path).resolve()
+        self.duplicates_dir = self.base_path / "duplicates"
+        self.without_exif_dir = self.base_path / "without_exif"
+        self.roughly_sorted_dir = self.base_path / "roughly_sorted"
+
         self.duplicates_dir.mkdir(exist_ok=True)
-        self.without_exif_dir = Path(self.base_path) / "without_exif"
         self.without_exif_dir.mkdir(exist_ok=True)
-        self.roughly_sorted_dir = Path(self.base_path) / "roughly_sorted"
         self.roughly_sorted_dir.mkdir(exist_ok=True)
 
     def scan_files(self) -> list[Path]:
-        return [file for file in Path(self.base_path).rglob("*") if file.is_file()]
+        return [file for file in self.base_path.rglob("*") if file.is_file()]
 
     def collect_conflicts(self) -> dict[str, list[str]]:
         names_map: dict[str, list[str]] = defaultdict(list)
