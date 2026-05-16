@@ -201,11 +201,12 @@ class IOHandler:
             try:
                 dt = datetime.strptime(datetime_str, "%Y%m%d_%H%M%S")
 
-                parent_folder_name = file.parent.name
-                format_date = dt.strftime("%Y-%m-%d")
-                format_time = dt.strftime("%H-%M-%S")
+                sortable_date = dt.strftime("%Y-%m-%d")
+                format_time = dt.strftime("%H.%M.%S")
 
-                new_name = f"{parent_folder_name}_{format_date}_{format_time}"
+                danish_format = dt.strftime("%d-%m-%Y")
+
+                new_name = f"{sortable_date}_{format_time}_({danish_format})"
                 new_path = file.with_name(new_name + file.suffix)
 
                 # Safe guard
