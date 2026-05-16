@@ -18,8 +18,9 @@ from helpers.console import (
 
 
 class IOHandler:
-    def __init__(self, *, base_path: str):
+    def __init__(self, *, base_path: str, is_dry_run: bool):
         self.base_path: Path = Path(base_path).resolve()
+        self.is_dry_run = is_dry_run
         self.duplicates_dir = self.base_path / "duplicates"
         self.without_exif_dir = self.base_path / "without_exif"
         self.roughly_sorted_dir = self.base_path / "roughly_sorted"
@@ -101,9 +102,7 @@ class IOHandler:
         files_with_mtime.sort()
         return files_with_mtime[0][1]
 
-    def move_duplicates(
-        self, *, duplicates: dict[str, list[FileData]], is_dry_run: bool
-    ) -> None:
+    def move_duplicates(self, *, duplicates: dict[str, list[FileData]]) -> None:
 
         print_header(f"Moving duplicate files to {self.duplicates_dir.name}")
         for hash_value, files in duplicates.items():
@@ -125,7 +124,7 @@ class IOHandler:
                         target_path = hash_folder / f"{stem}_{counter}{suffix}"
                         counter += 1
 
-                    if is_dry_run:
+                    if self.is_dry_run:
                         print_dry_run(f"Would move {file.file_path} to {target_path}")
                     else:
                         shutil.move(file.file_path, target_path)
@@ -135,9 +134,7 @@ class IOHandler:
                     print_error(f"Could not move file: {file.file_path}: {ex}")
         print_success("Done moving duplicates")
 
-    def rename_conflicts(
-        self, *, conflicts: dict[str, list[str]], is_dry_run: bool
-    ) -> None:
+    def rename_conflicts(self, *, conflicts: dict[str, list[str]]) -> None:
         print_header("Renaming conflict files")
         none_counter = 0
         for name, paths in conflicts.items():
@@ -150,7 +147,6 @@ class IOHandler:
                     self._rename_with_conflict_avoidance(
                         file=file_path,
                         new_name_base=f"{datetime_str}_{file_path.stem}_({idx})",
-                        is_dry_run=is_dry_run,
                     )
                 else:
                     none_counter += 1
@@ -158,13 +154,12 @@ class IOHandler:
                         file=file_path,
                         target_dir=self.without_exif_dir,
                         new_name_base=f"unknown_{file_path.stem}_({idx})",
-                        is_dry_run=is_dry_run,
                     )
         print_success("Done renaming conflicts")
         if none_counter > 0:
             print_warning(f"-> {none_counter} files without Datetime information")
 
-    def move_files_to_year(self, *, files: list[Path], is_dry_run: bool) -> None:
+    def move_files_to_year(self, *, files: list[Path]) -> None:
         no_exif_counter = 0
         for file in files:
             if file.name == ".DS_Store":
@@ -180,7 +175,6 @@ class IOHandler:
                 self._save_move(
                     source=file,
                     target=new_path,
-                    is_dry_run=is_dry_run,
                     action=f"EXIF -> Year {year}",
                 )
             else:
@@ -189,7 +183,6 @@ class IOHandler:
                 self._save_move(
                     source=file,
                     target=new_path,
-                    is_dry_run=is_dry_run,
                     action="No EXIF",
                 )
         if no_exif_counter > 0:
@@ -197,7 +190,7 @@ class IOHandler:
                 f"-> {no_exif_counter} files moved to: '{self.without_exif_dir.name}'"
             )
 
-    def beautify_file_names(self, *, files: list[Path], is_dry_run: bool) -> None:
+    def beautify_file_names(self, *, files: list[Path]) -> None:
         conflict_count = 0
         renamed_count = 0
         for file in files:
@@ -208,10 +201,9 @@ class IOHandler:
             try:
                 dt = datetime.strptime(datetime_str, "%Y%m%d_%H%M%S")
 
-                format_date = dt.strftime("%d-%m-%Y")
-                format_time = dt.strftime("%H-%M-%S")
-
                 parent_folder_name = file.parent.name
+                format_date = dt.strftime("%Y-%m-%d")
+                format_time = dt.strftime("%H-%M-%S")
 
                 new_name = f"{parent_folder_name}_{format_date}_{format_time}"
                 new_path = file.with_name(new_name + file.suffix)
@@ -228,7 +220,7 @@ class IOHandler:
                     print_warning(
                         f"Conflict detected -> added (_counter) to {file.name}"
                     )
-                if is_dry_run:
+                if self.is_dry_run:
                     print_dry_run(f"{file.name} -> {new_path.name}")
                 else:
                     file.rename(new_path)
@@ -243,13 +235,11 @@ class IOHandler:
                 f"→ {conflict_count} conflicts resolved with (_1), (_2), etc."
             )
 
-    def _save_move(
-        self, *, source: Path, target: Path, is_dry_run: bool, action: str
-    ) -> None:
+    def _save_move(self, *, source: Path, target: Path, action: str) -> None:
         if target.exists():
             print_warning(f"{target.name} already exists in {target.parent.name}")
             return
-        if is_dry_run:
+        if self.is_dry_run:
             print_dry_run(f"[{action}]: {source} -> {target}")
         else:
             try:
@@ -270,21 +260,21 @@ class IOHandler:
         return hasher.hexdigest()
 
     def _rename_with_conflict_avoidance(
-        self, *, file: Path, new_name_base: str, is_dry_run: bool
+        self, *, file: Path, new_name_base: str
     ) -> None:
         new_path = file.with_name(new_name_base + file.suffix)
         counter = 1
         while new_path.exists():
             new_path = file.with_name(f"{new_name_base}_{counter}{file.suffix}")
             counter += 1
-        if is_dry_run:
+        if self.is_dry_run:
             print_dry_run(f"Would rename: {file.name} to {new_path.name}")
         else:
             file.rename(new_path)
             print_success(f"Renamed: {file.name} to {new_path.name}")
 
     def _move_with_conflict_avoidance(
-        self, *, file: Path, target_dir: Path, new_name_base: str, is_dry_run: bool
+        self, *, file: Path, target_dir: Path, new_name_base: str
     ) -> None:
 
         new_path = target_dir / (new_name_base + file.suffix)
@@ -293,7 +283,7 @@ class IOHandler:
         while new_path.exists():
             new_path = target_dir / f"{new_name_base}_{counter}{file.suffix}"
             counter += 1
-        if is_dry_run:
+        if self.is_dry_run:
             print_dry_run(f"Would move: {file.name} to {target_dir} as {new_path.name}")
         else:
             shutil.move(str(file), new_path)

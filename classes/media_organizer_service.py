@@ -6,11 +6,11 @@ from models.file_data import FileData
 
 
 class MediaOrganizerService:
-    def __init__(self, *, base_path: str):
+    def __init__(self, *, base_path: str, is_dry_run: bool):
         self.base_path = Path(base_path)
         if not self.base_path.is_dir():
             raise ValueError(f"Invalid directory path: '{base_path}'")
-        self.io = IOHandler(base_path=str(base_path))
+        self.io = IOHandler(base_path=str(base_path), is_dry_run=is_dry_run)
         self.file_data: list[FileData] = []
         self.files: list[Path] = []
 
@@ -29,40 +29,40 @@ class MediaOrganizerService:
         print_success(f"Found {len(duplicates)} groups with duplicates:\n")
         return duplicates
 
-    def move_duplicates(self, *, is_dry_run: bool = False) -> None:
+    def move_duplicates(self) -> None:
         duplicates = self.find_duplicates()
         if not duplicates:
             print_info("No duplicates found")
             return
-        self.io.move_duplicates(duplicates=duplicates, is_dry_run=is_dry_run)
+        self.io.move_duplicates(duplicates=duplicates)
 
     def find_name_conflicts(self) -> dict[str, list[str]]:
         conflicts = self.io.collect_conflicts()
         return conflicts
 
-    def rename_conflicts(self, *, is_dry_run: bool = False) -> None:
+    def rename_conflicts(self) -> None:
         conflicts = self.find_name_conflicts()
         if not conflicts:
             print_info("No file name conflicts found")
             return
-        self.io.rename_conflicts(conflicts=conflicts, is_dry_run=is_dry_run)
+        self.io.rename_conflicts(conflicts=conflicts)
 
-    def sort_files_by_year(self, *, is_dry_run: bool = False) -> None:
+    def sort_files_by_year(self) -> None:
         if not self.files:
             self.scan_files()
-        self.io.move_files_to_year(files=self.files, is_dry_run=is_dry_run)
+        self.io.move_files_to_year(files=self.files)
 
-    def beautify_file_name(self, *, is_dry_run: bool = False) -> None:
+    def beautify_file_name(self) -> None:
         if not self.files:
             self.scan_files()
 
-        self.io.beautify_file_names(files=self.files, is_dry_run=is_dry_run)
+        self.io.beautify_file_names(files=self.files)
 
-    def run_all(self, *, is_dry_run: bool = False) -> None:
+    def run_all(self) -> None:
         print_header("Starting full operation")
         self.collect_file_and_hashes()
-        self.move_duplicates(is_dry_run=is_dry_run)
-        self.rename_conflicts(is_dry_run=is_dry_run)
-        self.sort_files_by_year(is_dry_run=is_dry_run)
-        self.beautify_file_name(is_dry_run=is_dry_run)
+        self.move_duplicates()
+        self.rename_conflicts()
+        self.sort_files_by_year()
+        self.beautify_file_name()
         print_header("All operations completed")

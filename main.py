@@ -38,13 +38,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        service = MediaOrganizerService(base_path=args.dir)
+        service = MediaOrganizerService(base_path=args.dir, is_dry_run=args.dry_run)
     except ValueError as ex:
         print_error(f"{ex}")
         exit(1)
 
     if args.all:
-        service.run_all(is_dry_run=args.dry_run)
+        service.run_all()
     elif args.scan:
         scanned_files = service.scan_files()
         print_scanned_files(scanned_files)
@@ -52,13 +52,13 @@ if __name__ == "__main__":
         duplicates = service.find_duplicates()
         print_duplicates(duplicates)
     elif args.move_duplicates:
-        service.move_duplicates(is_dry_run=args.dry_run)
+        service.move_duplicates()
     elif args.conflicts:
         conflicts = service.find_name_conflicts()
         print_conflicts(conflicts=conflicts)
     elif args.rename_conflicts:
-        service.rename_conflicts(is_dry_run=args.dry_run)
+        service.rename_conflicts()
     elif args.sort_year:
-        service.sort_files_by_year(is_dry_run=args.dry_run)
+        service.sort_files_by_year()
     elif args.beautify_names:
-        service.beautify_file_name(is_dry_run=args.dry_run)
+        service.beautify_file_name()
